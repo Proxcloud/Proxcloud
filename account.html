@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Proxcloud - the most advanced RFID cloning service in the world</title>
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+	<link rel="stylesheet" href="css/main.css">
+    <link href="css/custom.css" rel="stylesheet">
+	<link rel="stylesheet" href="./font-awesome/css/font-awesome.min.css">
+	<script src="./bebas-neue.js"></script>
+
+		<link rel="stylesheet" href="css/jquery-ui.css">
+    <!-- Custom Fonts & Icons -->
+    <link href='css/fontsgoogleapiscom_css_family=Open_Sans:400,700,600,800.css' rel='stylesheet' type='text/css'>
+	<link rel="stylesheet" href="css/icomoon-social.css">
+	<link rel="stylesheet" href="css/font-awesome.min.css">
+	
+	<script src="js/modernizr-2.6.2-respond-1.1.0.min.js"></script>
+<script src="js/jquery-1.9.1.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+		
+		<script src="js/jquery-ui.js"></script>
+		<!-- Scrolling Nav JavaScript -->
+		<script src="js/jquery.easing.min.js"></script>
+		<script src="js/scrolling-nav.js"></script>	
+		<script src="js/jquery.i18n.js"></script>	
+		<script src="js/jquery.i18n.messagestore.js"></script>
+		<script src="js/js.cookie.js"></script>
+		<script src="js/translate.js"></script>
+		<script src="js/spin.js"></script>
+		<script>
+		
+		$( document ).ready(function() {
+			
+			initTranslation()
+		});
+		
+		</script>
+
+
+<script src="js/base64js.min.js"></script>
+	<script>
+		actionTimeout = false
+		setActionTimeout = true
+		scanCallback = false;
+		pendingCall = null
+		verifyCallback = false;
+		readCallback = false
+		feeShown = false
+		copyCallback = false
+		APIaddress = "https://"+location.host+'/api'//location.host+':4000'
+		serverCheckInterval = null
+		processing = false
+		proxmarkDevice = null
+		packetCounter = 0
+		pendingProxPackets = []
+		pendingProxPacketsTimeout = null
+
+		pendingPackets = {}
+
+
+		function sendProxPacket(packet){
+			if (packet.counter != undefined){
+				wrapped = packet
+			} else {
+				wrapped = {"type":"proxReponse","data": packet, "counter":packetCounter}
+				packetCounter++
+			}
+			wrapped.timeout = setTimeout(function (){
+				sendProxPacket(wrapped)
+			}, 2400)
+			pendingProxPackets.push(wrapped)
+			pendingPackets[wrapped.counter] = wrapped
+			
+			clearTimeout(pendingProxPacketsTimeout)
+			pendingProxPacketsTimeout = setTimeout(function (){
+				sendToServer(pendingProxPackets)
+				pendingProxPackets = []
+			}, 100)
+			
+			
+		}
+		function sendToServer(packet, callback){
+			getFromServer()
+			
+			$.post(APIaddress+"?cookie="+Cookies.get('sessionid'), JSON.stringify({"packets":packet}), function (data) {
+				getFromServer()
+			  	if (callback){
+					callback(data)				
+				}
+			    }
+			).fail(function (a,b,c,d){
+				//alert(b)
+				console.log(a)
+			});
+			
+		}
+		function informUser(data){
+			if (data.responseType){
+				if (data.responseType == 'foundCard' || data.responseType == 'searchFail'){
+					$('#actionStatus').html('')
+					$('#progressStatus').html('')
+					if (scanCallback){
+						scanCallback(data);
+						scanCallback = false
+					}
+				}
+				if (data.responseType == 'verifyResult' && verifyCallback){
+					$('#actionStatus').html('')
+					$('#progressStatus').html('')
+					verifyCallback(data);
+					verifyCallback = false
+				}
+				if (data.responseType == 'cardDump' && readCallback){
+					$('#actionStatus').html('')
+					$('#progressStatus').html('')
+					readCallback(data)
+					readCallback = false
+				}
+				if (data.responseType == 'copyResult' && copyCallback){
+					$('#actionStatus').html('')
+					$('#progressStatus').html('')
+					copyCallback(data)
+					copyCallback = false
+				}
+				if (data.responseType =='statusUpdate'){
+					if (data.subtype =='actionUpdate'){ 
+						$('#actionStatus').html(data.userMessage)
+					}
+					if (data.subtype =='progressUpdate'){ 
+						if(data.progress < 1){
+							clearTimeout(actionTimeout)
+							setActionTimeout = false
+						}
+						$('#progressStatus').html(data.userMessage)
+					}
+				}
+			}
+		}
+		function writeUSB(data){
+			if (proxmarkDevice){
+				console.log("writing to pm3 ")
+				proxmarkDevice.claimInterface(1).then(() => {
+					proxmarkDevice.controlTransferOut({
+					    requestType: 'class',
+					    recipient: 'interface',
+					    request: 34,
+					    value: 0x03,
+					    index: 0x00})
+					.then(() => {
+						readUSB(proxmarkDevice)
+					})
+					//cmd = new Uint16Array([0x0107,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])
+					tmp = new ArrayBuffer(packetSize)
+					array = new Uint8Array(tmp)
+					array.set(new Uint8Array(data.buffer))
+					proxmarkDevice.transferOut(1, array)
+				})
+			}
+		}
+		usbSize = 64
+		packetSize = 544
+		buff = new ArrayBuffer(packetSize)
+		currnetPacket = new Uint8Array(buff)
+		byteCount = 0
+		function readUSB(device){
+			device.transferIn(2, usbSize)
+			.then(result => {
+				readUSB(device);
+				if (result.status == 'ok'){
+					currnetPacket.set(new Uint8Array(result.data.buffer), byteCount)
+					byteCount = byteCount + result.data.byteLength
+					if (byteCount >= packetSize) {
+						/*str = ""
+						view = new DataView(currnetPacket.buffer)
+						for (i = 0; i < packetSize; i++){
+							str = str+String.fromCharCode(view.getUint8(i))
+						}*/
+						//str = str.replace(/[^A-Za-z 0-9 \.,\?""!@#\$%\^&\*\(\)-_=\+;:<>\/\\\|\}\{\[\]`~]*/g, "");
+						/*console.log(str)
+						alert(str)*/
+						console.log("read from  pm3 ")
+						sendProxPacket(base64js.fromByteArray(currnetPacket))
+						byteCount = 0
+						clearTimeout(actionTimeout)
+						if(setActionTimeout){
+							actionTimeout = setTimeout(showActionTimeoutError, 30000)
+						}
+					}
+				
+				}
+			})
+		}
+		function connectUSB(){
+
+			var device;
+	
+			navigator.usb.requestDevice({ filters: [{ vendorId: 65021 }] })
+			.then(selectedDevice => {
+			   device = selectedDevice;
+			   navigator.usb.addEventListener('disconnect', device => {
+				  console.log('pm3 removed!')
+					disableSteps(true)
+					$('#connectButton').html('Connect').disable(false)
+				});
+			   return device.open(); // Begin a session.
+			 })
+			.then(() => device.selectConfiguration(1)) // Select configuration #1 for the device.
+			.then(() => device.claimInterface(0))
+			.then(() => {
+				proxmarkDevice = device;
+				//$('#connectionStatus').css('color', 'green')
+				//$('#connectionStatus').html("Connected &#10004;")
+				$('#connectButton').html('Connected').disable(true)
+				$("#backButton").disableBack(false)
+				$("#scanButton").disable(false)
+				//$('#connectButton').hide()
+				
+			})
+			.catch(error => { 
+				console.log(error);
+			 });
+			/*
+			.then(() => device.controlTransferOut({
+			    requestType: 'vendor',
+			    recipient: 'device',
+			    request: 0x01,
+			    value: 0x05,
+			    index: 0x00})) // Ready to receive data , new Uint16Array([1,2,3])
+			.then(result => {
+				console.log(result);
+			})*/
+		}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		card = null;
+	
+		function doLogin(data){
+			$('#accountInfo').show()
+			$('#loginForm').hide()		
+			$('#loginbanner').hide()
+			$('#welcomeName').text(data.email)
+			$('#hashCode').text(data.email.hashCode())
+			$('#wlecomebanner').show()
+			$("#balance").text(data.balance)
+			if (data.reseller > 1){
+				$('#makeReseller').hide()
+				$('#makeResellerWarning').hide()
+			}
+		}
+
+String.prototype.hashCode = function() {
+  var hash = 0, i, chr;
+  if (this.length === 0) return hash;
+  for (i = 0; i < this.length; i++) {
+    chr   = this.charCodeAt(i);
+    hash  = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
+};
+
+		waitingResponse = false
+		function getFromServer(callback){
+			if (!processing){
+				clearInterval(serverCheckInterval)
+				serverCheckInterval = null
+				return
+			}
+			if (waitingResponse){
+				return 
+			}
+			waitingResponse = true
+			pendingCall = $.ajax({
+			    type: "GET",
+			    url: APIaddress+"?cookie="+Cookies.get('sessionid'),
+			    dataType: "jsonp",
+			    success: function (data) {
+				console.log('got pack from server '+data.type)
+
+				if (data.type == 'packetAck'){
+					console.log("acking"+data.counters)
+					for (ack in data.counters){
+						if(data.counters[ack]){
+							if(pendingPackets[data.counters[ack]]){
+								clearTimeout(pendingPackets[data.counters[ack]].timeout)
+							}
+							delete pendingPackets[data.counters[ack]]
+						}
+					}
+					
+					//return
+				}
+				waitingResponse = false
+				if (data.status){
+					if (data.status == 'notLoggedIn'){
+						console.log("not looged into service...")
+						return;
+					}		
+				}
+				if (data.type == 'proxCmd'){
+					//console.log("got packget from server"+base64js.toByteArray(data.data))
+					writeUSB(base64js.toByteArray(data.data))
+				}
+				if (data.type == 'userReponse'){
+					//print "got packget from server"#, response
+					informUser(data)
+				}
+				if (data.type == 'paymentDeduction'){
+					$('#balance').text(Number($('#balance').text())-data.amount)
+				}
+				if (data.type == 'actionFinished'){
+					processing = false;
+					clearInterval(serverCheckInterval)
+					serverCheckInterval = null
+				}
+				if (callback){
+					callback()
+				}
+				getFromServer()
+			    },
+			}).fail(function (a,b,c){
+				
+				waitingResponse = false
+				if(b!='abort'){
+					setTimeout(getFromServer, 1000)
+					console.log('error: get request to server failed, trying again')
+				}
+				
+				//$('#connectionStatus').html("Could not connect to client, are you sure it's running?")
+			});
+			
+		}
+		
+		
+		function scan(type, callback){
+			scanCallback = callback;
+			processing = true
+			sendToServer([{
+				"type":"userCmd",
+				"cmd": "scan",
+				"data":type		
+			}])
+		}
+		function verify(type, callback){
+			verifyCallback = callback;
+			processing = true
+			sendToServer([{
+				"type":"userCmd",
+				"cmd": "verify",
+				"id":type		
+			}])
+		}
+		function dump(type, callback){
+			readCallback = callback;
+			processing = true
+			sendToServer([{
+				"type":"userCmd",
+				"cmd": "dump",
+				"id":type,
+				"skipFee": feeShown		
+			}])
+		}
+		function copy(id, callback){
+			copyCallback = callback
+			sendToServer([{
+				"type":"userCmd",
+				"cmd": "clone",
+				"id":id		
+			}])
+		}
+		function snoop(id, callback){
+			snoopCallback = callback
+			sendToServer([{
+				"type":"userCmd",
+				"cmd": "snoop",
+				"id":id		
+			}])
+			
+		}
+	function login(){
+		email = $('#username').val()
+		pass = $('#password').val()
+		$('#regStatus').hide()
+		$('#loginForm').fadeTo(500, 0.2)
+		$('#loginStatus').hide()
+		$.post( "./cgi/login.py", { username: email, password:pass }, function( data ) {
+		  console.log( data );
+		  	if (data.status){
+				$.get("./cgi/checkAccount.py", function(data){
+					doLogin(data)
+				})
+				
+			} else {
+				$('#loginForm').fadeTo(500, 1)
+				$('#loginStatus').show()
+				$('#loginStatus').text(data.result)
+			}
+		}, "json");
+		return false
+	}
+	function register(){
+		email = $('#username').val()
+		pass = $('#password').val()
+		$('#loginForm').fadeTo(500, 0.2)
+		$('#loginStatus').hide()
+
+		
+		$("#registerDialog").dialog('close')
+
+		reseller = $('#resllerBox').is(':checked') ? '1': '0'
+
+		$.post( "./cgi/register.py", { username: email, password:pass, reseller:reseller }, function( data ) {
+		  console.log( data );
+		  	if (data.status){
+				$('#loginForm').fadeTo(500, 1)
+				$('#regStatus').show()
+				$('#regStatus').text(data.result)
+				
+			} else {
+				$('#loginForm').fadeTo(500, 1)
+				$('#loginStatus').show()
+				$('#loginStatus').text(data.result)
+			}
+		}, "json").fail(function(xhr, status, error) {
+			$('#loginForm').fadeTo(500, 1)
+			$('#loginStatus').show()
+			$('#loginStatus').text("Error, please try again")
+		});;
+	}
+	function resetPassword(){
+		email = $('#username').val()
+		$('#loginForm').fadeTo(500, 0.2)
+		$('#loginStatus').hide()
+		$.post( "./cgi/resetPassword.py", { username: email}, function( data ) {
+		  console.log( data );
+		  	if (data.status){
+				$('#loginForm').fadeTo(500, 1)
+				$('#regStatus').show()
+				$('#regStatus').text(data.result)
+				
+			} else {
+				$('#loginForm').fadeTo(500, 1)
+				$('#loginStatus').show()
+				$('#loginStatus').text(data.result)
+			}
+		}, "json").fail(function(xhr, status, error) {
+			$('#loginForm').fadeTo(500, 1)
+			$('#loginStatus').show()
+			$('#loginStatus').text("Error, please try again")
+		});
+	}
+	
+	function supportedVersion() {     
+	    var raw = navigator.userAgent.match(/Chrom(e|ium)\/([0-9]+)\./);
+
+	    version = raw ? parseInt(raw[2], 10) : false;
+		return version >= 61
+	}
+	function isChrome(){
+		return /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+	}
+	function supportedBrowser(){
+		return isChrome() && supportedVersion()
+	}
+	jQuery.fn.extend({
+	    disable: function(state) {
+		return this.each(function() {
+		    this.disabled = state;
+			if (state){
+				$(this).parent().addClass('disabledButton')
+				$(this).removeClass('active-button')
+			} else {
+				$(this).parent().removeClass('disabledButton')
+				$(this).addClass('active-button')
+			}	
+		});
+	    }
+	});
+
+	jQuery.fn.extend({
+	    disableBack: function(state) {
+		return this.each(function() {
+		    this.disabled = state;
+			if (state){
+				$(this).parent().addClass('disabled-back-button')
+				$(this).removeClass('back-button')
+			} else {
+				$(this).parent().removeClass('disabled-back-button')
+				$(this).addClass('back-button')
+			}	
+		});
+	    }
+	});
+
+	jQuery.fn.extend({
+	    setPendingButton: function(state) {
+		return this.each(function() {
+		    this.disabled = state;
+			if (state){
+				$(this).parent().addClass('pendingButton')
+			} else {
+				$(this).parent().removeClass('pendingButton')
+			}	
+		});
+	    }
+	});
+
+	function restartServer(callback){
+		$('#actionStatus').html('')
+		$('#progressStatus').html('')
+		
+		waitingResponse = false;
+		packetCounter = 0
+		feeShown = false
+		for (d in pendingPackets){
+			clearTimeout(d)
+		}
+		pendingPackets = {}
+		if(pendingCall){
+			pendingCall.abort()
+		}
+		clearTimeout(pendingProxPacketsTimeout)
+		$.ajax({
+		    type: "GET",
+		    url: APIaddress+"?restart=1.py",
+		    dataType: "jsonp",
+		    success: function (data) {
+			console.log("restarted")
+			waitingResponse = false;
+			packetCounter = 0
+			feeShown = false
+			for (d in pendingPackets){
+				clearTimeout(d)
+			}
+			pendingPackets = {}
+			if(pendingCall){
+				pendingCall.abort()
+			}
+			callback()
+		    },
+		}).fail(function (){
+			//waitingResponse = false
+			//getFromServer()
+			//$('#connectionStatus').html("Could not connect to client, are you sure it's running?")
+		});
+	}
+	
+	function startLoading(){
+		var opts = {
+			  lines: 13 // The number of lines to draw
+			, length: 18 // The length of each line
+			, width: 14 // The line thickness
+			, radius: 32 // The radius of the inner circle
+			, scale: 1 // Scales overall size of the spinner
+			, corners: 1 // Corner roundness (0..1)
+			, color: '#000' // #rgb or #rrggbb or array of colors
+			, opacity: 0 // Opacity of the lines
+			, rotate: 0 // The rotation offset
+			, direction: 1 // 1: clockwise, -1: counterclockwise
+			, speed: 0.5 // Rounds per second
+			, trail: 60 // Afterglow percentage
+			, fps: 20 // Frames per second when using setTimeout() as a fallback for CSS
+			, zIndex: 2e9 // The z-index (defaults to 2000000000)
+			, className: 'spinner' // The CSS class to assign to the spinner
+			, top: '42%' // Top position relative to parent
+			, left: '50%' // Left position relative to parent
+			, shadow: false // Whether to render a shadow
+			, hwaccel: false // Whether to use hardware acceleration
+			, position: 'absolute' // Element positioning
+		}
+		var target = document.getElementById('loadingSpinner')
+		var spinner = new Spinner(opts).spin(target);
+	}
+
+	function hideLoading(){
+		$('#spinbackground').hide()
+		$('.spinner').hide()
+		clearTimeout(actionTimeout)
+	}
+	
+	function showLoading(){
+		clearTimeout(actionTimeout)
+		actionTimeout = setTimeout(showActionTimeoutError, 30000)
+		$('#spinbackground').show()
+		$('.spinner').show()
+	}
+
+	function showActionTimeoutError(){
+		$("#timeoutDialog").dialog('open')
+		
+	}
+
+	function closeTimeoutDialog(){
+		step(0)
+		$("#timeoutDialog").dialog('close')
+	}
+	blankLinks = {}
+	$( document ).ready(function() {
+		startLoading()
+		hideLoading();
+		$.get("./client/cardUrls.json", function(data){
+			blankLinks = data;
+		})
+		$.get("https://api.fixer.io/latest?base=CNY", function(data){
+			$('#exchangeRate').text(data.rates.EUR);
+		})
+
+		
+
+		$.get("./cgi/checkAccount.py", function(data){
+			if(data.status){
+				doLogin(data)
+			} else {
+				$('#loginForm').show()
+			}
+		})
+		$("#timeoutDialog").dialog()
+		$("#timeoutDialog").dialog('close')
+
+		$("#registerDialog").dialog()
+		$("#registerDialog").dialog('close')
+		
+		$("#resellerDialog").dialog({width: Math.min(window.innerWidth, 800)})
+		$("#resellerDialog").dialog('close')
+		
+		$('#loginButton').on('click', login)
+		$('#registerButton').on('click', function(){
+			$("#registerDialog").dialog('open')
+		})
+		$('#passwordResetButton').on('click', resetPassword)
+		
+		if (!isChrome()){
+			$('#browserwarning').html("You are using an unsupported browser. Please open this page using Google Chrome.")
+		} else if (!supportedVersion()){
+			$('#browserwarning').html("You are using an outdated version of Chrome, please update your browser to version 61 or later")
+		} else {
+			$('#browserwarning').hide()
+		}
+		disableSteps(true)
+		
+		$("#dialog").dialog({width: Math.min(window.innerWidth, 800)})
+		
+		//$("#dialog").dialog( "option", "maxWidth", 800 );
+		$("#dialog").dialog('close')
+		$( document ).ready(function() {
+			$('#copyrightYear').html((new Date()).getFullYear())
+		});
+		restartServer(hideLoading)
+	});
+	function stop(){
+		return false
+	}
+	function disableSteps(all){
+		$("#verifyButton").disable(true).setPendingButton(false)
+		$("#readButton").disable(true).setPendingButton(false)
+		$("#copyButton").disable(true).setPendingButton(false)
+		$("#snoopButton").disable(true).setPendingButton(false)
+		$("#scanButton").disable(true).setPendingButton(false)
+		if(all){
+			$("#backButton").disableBack(true)
+			
+		}
+	}
+	function step(stepID){
+		showLoading()
+		if (stepID == 0){
+			$('#currentStep').html('Step 1 - Scan')
+			$('#stepMessage').html('Place the card on the proxmark3 antenna and Click "Scan" to begin')
+			disableSteps()
+			$("#scanButton").disable(false)
+			restartServer(hideLoading)
+
+		} else if (stepID == 1){
+			$('#stepMessage').html('Searching for cards, please wait...')
+			disableSteps()
+			$("#scanButton").setPendingButton(true)
+			scan('all', function (data){
+				hideLoading()
+				if (data && data.responseType=="foundCard"){
+					card = data.cards[0]['data']
+
+					cards = ""
+					canCopy = true
+					for (c in data.cards){
+						cards = cards + data.cards[c]['cardName']+' card, ID: '+data.cards[c]['data']['id'].toUpperCase()
+						if(!data.cards[c]['canBeCopied']){
+							cards = cards +" - <span style=\"color:red;\">This card can't currently be copied</span>"
+							canCopy = false
+						}
+						cards = cards +"<br>"
+					}
+
+					$('#stepMessage').html('Found '+cards+'<br><br>Place the blank card on the Proxmark3 to check it is the right type, <br>you should use a blank '+blankLinks[card.type].name+' card')
+					if (canCopy){
+						$("#verifyButton").disable(false)
+						$('#currentStep').html('Step 2 - Verify')
+					} else {
+						$('#currentStep').html('Step 1 - Scan')
+						//$('#stepMessage').html('Click "Scan" to begin')
+					}
+					
+				}
+				if (data && data.responseType =="searchFail"){
+					$("#scanButton").disable(false)
+					card = false
+					$('#stepMessage').html('Failed to find card<br><br>Try scanning again with the card in a different position')
+					clearInterval(serverCheckInterval)
+					serverCheckInterval = null
+				}
+			})
+			
+			
+		} else if(stepID == 2){
+			$('#stepMessage').html('Checking card is re-writable, please wait...')
+			disableSteps()
+			$("#verifyButton").setPendingButton(true)
+			verify(card['id'], function(result){
+				hideLoading()
+				if (result['match']){
+					$('#stepMessage').html('&#10004; This is the right type of card! Place the original card back on the antenna and click "Read".')
+					$("#readButton").disable(false)
+					$('#currentStep').html('Step 3 - Read')
+				} else {
+					blankLink = "<br><span style=\"font-size:small\"><a href='"+blankLinks[card.type].link+"'>You can buy blank cards of the correct type here</a></span>"
+					if (result.userMessage){
+						$('#stepMessage').html('&#10006; '+result.userMessage + blankLink)
+					} else {
+						$('#stepMessage').html("&#10006; couldn't verify card, please try again "+blankLink)
+					}
+					$("#verifyButton").disable(false)
+				}
+			})
+			
+		} else if (stepID == 3){
+			disableSteps()
+			$('#stepMessage').html('Reading card, please wait...')
+			dump(card['id'], function(result){
+				hideLoading()
+				if (result['result']){
+					$('#currentStep').html('Step 4 - Copy')
+					$('#stepMessage').html('Card successfully read. Place blank card on the proxmark3 to copy')
+					$("#copyButton").disable(false)
+				} else {
+					if (result.reason == 'fee'){
+						$('#stepMessage').html('This tag is a '+result.level+' security card.<br><span style="font-size:small"> Click "Read" again to proceed, proceeding will deduct €'+result.feeAmount+' from your account.</span>')
+						feeShown = true
+					} else {
+						if (result.userMessage){
+							$('#stepMessage').html('&#10006; '+result.userMessage)
+						} else {
+							$('#stepMessage').html('Error reading card, please try again')
+						}
+						
+					}
+					$("#readButton").disable(false)
+				}
+			})
+		} else if (stepID == 3.5){
+			$('#stepMessage').html('In order to read this card, you need to place the proxmark3 between the card and a reader')
+		} else if (stepID == 4){
+			$('#stepMessage').html('Writing card, please wait...')
+			disableSteps()
+			copy(card['id'], function(result){
+				hideLoading()
+				if (result['result']){
+					$('#currentStep').html('Done')
+					$('#stepMessage').html('&#10004; Complete, card successfully copied')
+				} else {
+					$('#stepMessage').html('Copying failed, please try again')
+					$("#copyButton").disable(false)
+				}
+			})
+			
+			
+		}
+	}
+	function addCredit(){
+		$("#dialog").dialog('open')
+	}
+	function processCode(data){
+		$.post( "./cgi/redeemCode.py", data, function( data ) {
+			$("#redeemResult").html(data.message)
+			if (data.status){
+				$.get("./cgi/checkAccount.py", function(data){
+					doLogin(data)
+				})
+			}
+		}, "json");
+	}
+	function redeemCode(){
+		code = $('#codePrivate').val()
+		processCode({ "code": code })
+	}
+	function payNow(){
+		amount = $('#btcValue').val()
+		$.post( "./cgi/addCredit.py", {amount:amount}, function( data ) {
+			if(data.status) {
+				
+				window.location.replace(data.message);
+			} else {
+				$("#addCreditResult").html(data.message)
+			}
+			
+		}, "json");
+	}
+	function selectPayment(me, text){
+		$('#ebay').removeClass('darkShadow');
+		$('#wechat').removeClass('darkShadow');
+		$('#bitcoin').removeClass('darkShadow');
+		$('#bitcoinText').hide();
+		$('#wechatText').hide();
+		$('#ebayText').hide();
+		$('#'+text).show();
+		$(me).addClass('darkShadow');
+	}
+
+	function showReseller(){
+		$("#resellerDialog").dialog('open')
+		$('#dialog').dialog('close')
+	}
+	function createCredit(){
+		amount = $('#codeValue').val()
+		codeEmail = $('#codeEmail').val()
+		$.post( "./cgi/createCode.py", {amount:amount, email:codeEmail}, function(data) {
+			$("#codeResult").html(data.message)
+			if (data.status){
+				$.get("./cgi/checkAccount.py", function(data){
+					doLogin(data)
+				})
+			}
+		}, "json");
+	}
+	function makeReseller(){
+		$.get( "./cgi/makeReseller.py", function(data) {
+			location.reload()
+		});
+	}
+	</script>
+
+</head>
+    <body>
+        
+        
+ <header class="navbar navbar-inverse navbar-fixed-top" role="banner">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="index.html"><img src="img/logo.png" alt="Proxcloud"></a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                   <li ><a href="index.html" class="translate-nav-home">Home</a></li>
+                  
+                    <li><a href="services.html" class="translate-nav-services">Services</a></li>
+                    <li><a href="getting_started.html" class="translate-nav-getting-started">Getting Started</a></li>
+                    
+                    <li class="active"><a href="account.html"  class="translate-nav-account">Account</a></li> 
+                    <li><a href="about-us.html"  class="translate-nav-about-us">About Us</a></li><div id="translations" style="float: right;right: 200px;"></div>
+                </ul>
+            </div>
+        </div>
+    </header><!--/header-->
+    
+
+        <!-- Page Title -->
+		<div class="section section-breadcrumbs">
+			<div class="container">
+				<div class="row">
+					<div class="col-md-12">
+						<h2 style="color:white">Account Panel</h2>
+						<span id="accountInfo" style="display:none">
+							<h4>You are logged in as <span id="welcomeName"></span></h4>
+							<span style="float:left;">Account Balance: € <span id=balance></span> - <button style="background-color: #818475;" onclick="addCredit()">Add Credit</button></span>
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		
+        <div class="section">
+	    	<div style = "  " class="container">
+			<div class="row">
+				<div  class="col-sm-12">
+						<h4 id="browserwarning" style="color:red"></h4>
+						<h4 id="loginbanner">Login or register to start using the control panel</h4>
+						<div id="wlecomebanner" style="display:none">
+						
+						<h5></h5>
+						<div id="actionArea">
+						<div id=stepPanel style="width: 100%;height: 200px;">
+							<h3 style=" font-weight: bolder;" align="center" ><span id="currentStep">Step 1 - Scan</span></h3>
+							<br>
+							<h3 id="stepMessage" style="font-weight: bolder;" align="center" >Click "Scan" to begin</h3><br>
+							<div style="width:100px;width:100px" id="loadingSpinner"></div>
+						</div><br><br>
+
+						<div style="font-size:small" id="actionStatus" align="center" ></div>
+						<div style="font-size:small" id="progressStatus" align="center" ></div>
+						
+						<ul style=" margin-left: -12%;list-style: none;" class="breadcrumbs-two">
+							<li style="width:15%" ><button class="active-button" style="width:100%" id='connectButton' onclick="connectUSB()">Connect</button></li>
+							<li style="width:14%" ><button class="active-button" style="width:100%" id='scanButton' onclick="step(1)">Scan</button></li>
+							<li style="width:14%"><button class="test active-button" style="width:100%" id='verifyButton' onclick="step(2)">Verify</button></li>
+							<li style="width:14%"><button class="active-button" style="width:100%" id='readButton' onclick="step(3)">Read</button></li>
+							<li style=" display: none;width:18%"><button style="width:100%; background-color: #ddd;" id='snoopButton' onclick="step(3.5)">Snoop</button></li>
+							<li style="width:14%"><button class="active-button" style="width:100%" id='copyButton' onclick="step(4)">Copy</button></li>
+						</ul>	
+						
+						<br>
+						</div>
+						<br><ul style=" margin-left: -12%;list-style: none;" class="breadcrumbs-two">
+						<li style="    margin-left: 40%;"><button class="back-button" style="" id='backButton' onclick="step(0)">Restart</button></li></ul>	
+						</div>
+						   <div id="loginStatus" style="margin:0px 0px 10px 0px;background-color: rgba(255, 0, 0, 0.36);"></div>
+							<div id="regStatus" style="margin:0px 0px 10px 0px;background-color: rgba(0, 255, 0, 0.36);"></div>
+						<form id="loginForm"  style="display:none;padding: 10px 20px 20px 20px;box-shadow:none;" class="modal-content animate" action="login.php" onSubmit="return stop();">
+						    <div class="">
+							<span style="white-space: nowrap; display: inline-block; margin-top: 10px;">
+								<label><b>Email</b></label>
+								<input style="    padding: 7px;border-radius: 6px;" id="username" type="text" placeholder="Enter email" name="username" required>
+							</span>
+							<span style="white-space: nowrap; display: inline-block; margin-top: 10px;">
+								<label><b>Password</b></label>
+								<input style="padding: 7px;border-radius: 6px;" autocomplete="off" id="password" type="password" placeholder="Enter Password" name="password">
+							</span>
+							<span style="white-space: nowrap; display: inline-block; margin-top: 10px;">
+								<button id="loginButton" style="margin-left:10px" type="submit">Login</button>
+								<button id="registerButton" style="margin-left:10px" type="submit">Register</button>
+								<button id="passwordResetButton" style="margin-left:6px" type="submit">Reset forgotten password</button>
+							</span>
+						    </div>
+
+						   
+						  </form>
+					
+					</div>
+				</div>
+				
+			</div>
+		</div>		
+        
+      
+ <!-- Footer -->
+	     <div class="footer">
+	    		
+		    	<div class="row">
+		    		<div class="col-md-12">
+		    			<div class="footer-copyright">&copy; <span id="copyrightYear">2016</span> <a href="http://proxcloud.eu">Proxcloud.eu</a></div>
+		    		</div>
+		    	</div>
+	    </div>
+        
+	<div id="dialog"  title="Add Credit"  >
+	<br>
+	<div style="font-weight: bold;">Buy credit using:</div><br>
+	<div style="">
+		<div id="ebay" class="pricing-plan" style="float: none; display: inline-block; width: 29%;    margin: 1%;border-radius: 7px" onclick="selectPayment(this, 'ebayText')">PayPal</div>
+		<div id="wechat" class="pricing-plan" style="float: none;display: inline-block; width: 29%;    margin: 1%;border-radius: 7px" onclick="selectPayment(this, 'wechatText')">Wechat</div>
+		<div id="bitcoin" class="pricing-plan" style="float: none;display: inline-block; width: 29%;    margin: 1%;border-radius: 7px" onclick="selectPayment(this, 'bitcoinText')">Bitcoin</div>
+	</div>
+	<div style="margin: 10px;">
+	<div  id="ebayText" style="display:none">
+		<p>Several third parties resell Proxcloud credit on their online stores, such as <a href="https://blackfl.ag/store"  style="color:#aec62c">Blackflag Security</a> and <a href="https://www.ebay.com/sch/i.html?_nkw=proxcloud+recharge+code&_sacat=0" style="color:#aec62c">Ebay</a>, choose a reseller and buy the amount of credit you wish to add, the seller will then email you a code you can redeem to add the credit to your account. <br><span style="font-size:smaller">Note that to prevent fraud, codes can only be used to add credit to the same email address as the paypal account used to buy them. Warning: If you request a paypal refund after redeeming a code, your account/device will be locked.</span></p><br>
+		<table>
+		<tr><th style="font-weight: bold;">Redeem Code: </th><th><input id="codePrivate" style="margin-left: 20px;width:130px;border-radius: 4px;border-width: 1px;border-color: black;"></input></th><th><button style="margin-left: 20px;padding: 3px;" onclick="redeemCode()">Add credit</button></th></tr>
+		</table><br>
+		<span id="redeemResult" style="font-weight: bold;"></span>
+	</div>
+
+
+	<div id="wechatText" style="display:none"><p>Add credit using Wechat money (微信支付), scan the QR code and enter the amount to credit, enter the payment code in the "notes" section and click pay. Credit will be instantly added to your account. Wechat payments are in CNY, which will be converted to Euros at the current exchange rate of <span id="exchangeRate"></span></p> 
+		<div>When sending money, <span  style="font-weight: bold;">you must add the code: <span id="hashCode"></span></span> as a note with the payment, otherwise the credit will not be added to your account.</div>
+		<div class="betaSoon"  style=" margin: auto;display: block;" >
+			<img  style=" margin: auto;display: block;"  src="./utils/qr.jpg"></img>
+		</div>
+
+	</div>
+
+
+	<div id="bitcoinText" style="display:none"> <p >To use Bitcoin to add credit to your account, enter the amount of credit to add and scan the QR code using your wallet app, or transfer directly to the address. Once payment is confirmed, which may take a few hours depending on the current speed of the bitcoin network, the credit will be automatically added to your account and an email notification sent to you.
+	
+
+	</p>
+<table>
+		<tr><th style="font-weight: bold;">Buy credit € </th><th><input id="btcValue" style="margin-left: 20px;width:130px;border-radius: 4px;border-width: 1px;border-color: black;"></input> </th><th><button style="margin-left: 20px;padding: 3px;" onclick="payNow()">Pay now</button></th></tr>
+		</table><br>
+<div id="addCreditResult" style="font-weight: bold;"></div>
+
+<br>
+	 If you are interested in reselling codes, see <a style="color:#aec62c" href="#" onclick="showReseller()">reseller details</a>.
+
+	</div>
+</div>
+
+	
+	<br><br>
+	<!-- Quantity Discounts -->
+	<div>
+	<!-- <ul style="    float: left;">
+		<li>under 50€ - No discount</li>
+		<li>over 50€ - Free €5 credit</li>
+		<li>over 100€ - Free €15 credit</li>
+		<li>over 200€ - Free €35 credit</li>
+	</ul> -->
+	<button onclick="$('#dialog').dialog('close')" style="margin: auto;    padding: 10px;    display: block;">Close</button></div>
+	</div>
+
+	<div id="timeoutDialog"  title=""  >
+	  <p style="">There seems to been an error, you will need to restart the copying process.</p>
+		<button onclick="closeTimeoutDialog()">Restart</button>
+	</div>
+
+
+	<div id="registerDialog"  title="Terms of Service"  >
+	  <p style="">Please read and agree to the following terms of service in order to register.</p>
+		<p><ol style="height:350px;overflow:hidden; overflow-y:scroll;">
+			<li>I know and agree that this service is for studying the security of contactless cards/legal personal use only. </li>
+			<li>I know understand what this service can do/can’t do. I agree that this service might be upgraded/modified in the future without any notification. </li>
+			<li>I know and agree that this technology can be used for legal and illegal purposes. I agree to only use this service in legal ways and will not misuse or abuse it in illegal or unethical ways. I understand and agree that I am fully responsible for my use of the service and any resulting loss or any legal dispute I may incur through its use.</li>
+			<li>I understand that credit added to my account cannot later be removed.</li>
+
+		</ol></p>
+		<br>
+		<input type="checkbox" id="resllerBox" >I am interested in reselling the Proxcloud software. Please contact me to disucss this further.</<input><br>
+		<button onclick="register()">I agree</button> <button onclick="$('#registerDialog').dialog('close')">I do not agree</button> 
+	</div>
+	<div id="resellerDialog"  title="Reseller"  >
+		<p style="">As a reseller, you can buy credit codes at a large discount, and sell them to users at any price you choose. Reselling codes is an easy way to make money online, it can also be useful for converting cryptocurrency like bitcoin to PayPal or other platform. Reselling codes also helps Users and Proxcloud by making it easy to buy credit.</p>
+		<p style="">To prevent fraud, codes must be generated for an individual user account, i.e. input the user's email when generating their code below. When using PayPal, please make sure the user's PayPal email address is the same as their Proxcloud account. If you follow this simple anti-fraud rule, and the user later requests PayPal refund, we will refund the credit to your account. However, if you do not follow the anti-fraud rule, Proxcloud will not refund credit in case the user requests PayPal refund.</p>
+
+		<p style="">To generate a code, simply enter the amount of credit and the users email address below and click "generate". The system will generate a code which you should send to the user. Credit will be deducted from your account, after the reseller discount rate of 50% has been applied.</p>
+
+
+		<table>
+			<tr><th style="font-weight: bold;">Generate code: €</th><th><input id="codeValue" style="margin-left: 20px;width:130px;border-radius: 4px;border-width: 1px;border-color: black;" placeholder="amount"></input> </th><th><input id="codeEmail" placeholder="customer email" style="margin-left: 20px;width:130px;border-radius: 4px;border-width: 1px;border-color: black;"></input> </th><th><button style="margin-left: 20px;padding: 3px;" onclick="createCredit()">Generate</button></th></tr>
+		</table><br>
+<p id="codeResult" style="font-weight: bold;"></p>
+		<p id="makeResellerWarning">Warning: making your account into a reseller will reset your account balance to €0! If you want to keep your credit, consider making a new account. You will also not be able to use codes to add credit your account in the future, other payment options such as bitcoin will still work</p>
+		<button id="makeReseller" style="margin: auto;    padding: 10px;    display: block;" onclick="makeReseller()">Make my account into a reseller</button> 
+		<br>
+		
+		<button style="margin: auto;    padding: 10px;    display: block;" onclick="$('#resellerDialog').dialog('close')">Close</button> 
+	</div>
+    </body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Proxcloud - the most advanced RFID cloning service in the world</title>
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+	<link rel="stylesheet" href="css/main.css">
+    <link href="css/custom.css" rel="stylesheet">
+	<link rel="stylesheet" href="./font-awesome/css/font-awesome.min.css">
+	<script src="./bebas-neue.js"></script>
+
+    <!-- Custom Fonts & Icons -->
+    <link href='css/fontsgoogleapiscom_css_family=Open_Sans:400,700,600,800.css' rel='stylesheet' type='text/css'>
+	<link rel="stylesheet" href="css/icomoon-social.css">
+	<link rel="stylesheet" href="css/font-awesome.min.css">
+	
+	<script src="js/modernizr-2.6.2-respond-1.1.0.min.js"></script>
+<script src="js/jquery-1.9.1.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+		<link rel="stylesheet" href="css/jquery-ui.css">
+		<!-- Scrolling Nav JavaScript -->
+		<script src="js/jquery.easing.min.js"></script>
+		<script src="js/scrolling-nav.js"></script>	
+		<script src="js/jquery.i18n.js"></script>	
+		<script src="js/jquery.i18n.messagestore.js"></script>
+		<script src="js/js.cookie.js"></script>
+		<script src="js/translate.js"></script>
+		<script src="js/jquery-ui.js"></script>
+		<script>
+		
+		function updateBounties(){
+			$.get('cgi/listBounties.py', function(result){
+				//console.log(result)
+				
+				if (result.status){
+					$('#bounties').html('<tr> <th class="translate-about-bounty-type" style="font-weight: bolder;">Card Type</th> <th class="translate-about-bounty-current">Current Bounty</th><th  class="translate-about-bounty-my-contribution">My Contribution</th><th class="translate-about-bounty-amount">Amount to Contribute</th><th></th></tr>')
+					$('#bounties').append('<tr style="      border-bottom-color: rgb(148, 148, 148);;border-bottom-width: 1px;border-bottom-style: solid;   height: 10px;"> <th style="font-weight: bolder;"></th><th></th><th></th><th></th><th></th></tr>')
+					for (i =0; i < result.bounties.length; i++){
+						$('#bounties').append('<tr  id="bountyRow'+result.bounties[i][0]+'" style="     border-bottom-color: rgb(148, 148, 148);;border-bottom-width: 1px;border-bottom-style: solid;  height: 50px;"> <th style="font-weight: bolder;">'+result.bounties[i][1]+'</th> <th>€ '+result.bounties[i][2]+'</th><th>€ 0</th><th>€ <input style="box-shadow:2px 2px 5px;    border: none;    width: 40px;" id="amountID'+result.bounties[i][0]+'"></input></th><th><button class="translate-about-bounty-contribute" onclick="contribute('+result.bounties[i][0]+')">Contribute</button></th></tr>')
+					}
+					initTranslation()
+					$.get("./cgi/checkAccount.py", function(data){
+						if(data.status){
+							bounties = JSON.parse(data.bounties)
+							for(i in bounties){
+								$($("#bountyRow"+(i)).children()[2]).html('€ '+bounties[i])
+								$($("#bountyRow"+(i)).children()[2]).css('color', 'green')
+							}
+						} else {
+							i = 0;
+							while ($("#bountyRow"+(i+1)).length > 0){
+								//$("#bountyRow"+(i+1)).html('Not logged in')
+								$($("#bountyRow"+(i+1)).children()[2]).html('Not logged in')								
+								i+=1
+							}
+
+						}
+						
+					})
+				}
+			})
+
+		}
+		
+		function contribute(id){
+			amount = $('#amountID'+id).val()
+			$.post( "./cgi/contribute.py", { amount: amount, id:id }, function( data ) {
+				updateBounties()
+				$("#dialog").dialog('open')//.html(data.message)
+				$("#dialog").dialog('open').children().removeClass('translate-about-bounty-message-1')
+				$("#dialog").dialog('open').children().removeClass('translate-about-bounty-message-2')
+				$("#dialog").dialog('open').children().removeClass('translate-about-bounty-message-3')
+				$("#dialog").dialog('open').children().addClass('translate-about-bounty-message-'+data.message)
+				initTranslation()
+			}, "json");
+		}
+		$( document ).ready(function() {
+			initTranslation()
+			updateBounties()
+			$("#dialog").dialog()
+			$("#dialog").dialog('close')
+			$( document ).ready(function() {
+    				$('#copyrightYear').html((new Date()).getFullYear())
+			});
+		});
+		
+		</script>
+</head>
+    <body>
+        <!--[if lt IE 7]>
+            <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+        <![endif]-->
+        
+ <header class="navbar navbar-inverse navbar-fixed-top" role="banner">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="index.html"><img src="img/logo.png" alt="Proxcloud"></a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                      <ul class="nav navbar-nav navbar-right">
+                   <li ><a href="index.html" class="translate-nav-home">Home</a></li>
+                  
+                    <li><a href="services.html" class="translate-nav-services">Services</a></li>
+                    <li><a href="getting_started.html" class="translate-nav-getting-started">Getting Started</a></li>
+                    
+                    <li><a href="account.html"  class="translate-nav-account">Account</a></li> 
+                    <li class="active"><a href="about-us.html"  class="translate-nav-about-us">About Us</a></li><div id="translations" style="float: right;right: 200px;"></div>
+                </ul>
+            </div>
+        </div>
+    </header><!--/header-->
+    
+
+        <!-- Page Title -->
+		<div class="section section-breadcrumbs">
+			<div class="container">
+				<div class="row">
+					<div class="col-md-12">
+						<h1 class="translate-nav-about-us">About Us</h1>
+					</div>
+				</div>
+			</div>
+		</div>
+        
+        <div class="section">
+	    	<div class="container">
+				<div class="row">
+				<div class="col-sm-8">
+						<h2 class="translate-footer-about">About Proxcloud</h2>
+						<h3 class="translate-about-heading-sub">Proxcould is a service designed to make copying RFID cards easy</h3>
+						<p class="translate-about-detail-1">Proxcloud is hosted in Europe but available to anyone in the world.
+						</p><div id="contributing"></div>
+						<p class="translate-about-detail-2">I aim to provide a useful and ethical service. The Proxcloud service is meant to help ordinary people who need to make copies of their RFID cards. It can also be used by locksmiths and pentesters. Only those with permission to copy their card are allowed to use this service. Unauthorised copying of cards will result in being banned from the service. If you are aware of unethical use of the service, such as by hackers or criminals, please report them to <a href="mailto:help@proxcloud.eu">help@proxcloud.eu</a>.
+						</p>
+						
+						<h3  class="translate-about-range">Wide range of cards</h3>
+						<p class="translate-about-range-detail">Proxcloud already supports a very wide range of cards, but  we're always looking to improve. If you have a card that can't yet be copied, contact me with details and I'll look into supporting it. Likewise, if you develop code to copy a new card type, we are happy to add it to our service and share the income with you. Contact me to discuss how we can work together.
+						</p>
+						<p class="translate-about-bounty">We also run a collaborative "bug bounty" for card vulnerabilities. Below is the current list of bug bounty rewards. Contributing to the reward comes with no guarantee the card will be cracked, but if it is, you will get 100 free card copies for every 1€ you contribute. 
+						</p><br>
+						<table style="width:100%" id="bounties">
+						</table>
+						<p  class="translate-about-bounty-rules" style="font-size: x-small;">Rules for bug bounty: Code or other research allowing copying of the listed cards qualify for the bounty. The details must remain private and be shared only with Proxcloud. Research must allow copying cards using today's hardware i.e. theoretical cryptanalysis which reduces the time needed to crack a card but would still take thousands of years does not qualify for the reward.
+						</p>
+						<h3 class="translate-about-legal">Legal</h3>
+						<p class="translate-about-legal-detail-1">As a user, it is perfectly legal for you to copy cards you own, however if the card is not yours, make sure you get permission from the card owner before copying it.
+						</p>
+						<h3 class="translate-about-translations">Github</h3>
+						<p class="translate-about-translations-details">The source for this website can be <a href="https://github.com/Proxcloud/Proxcloud">found on github</a>, if you find a bug, you can create a report on github, if you want to help improve the site, such as translating it into your language, or improving the UI, please submit a pull request.</p>
+			
+				</div>
+			</div>
+		</div>
+
+		 <!-- Footer -->
+	     <div class="footer">
+	    		
+		    	<div class="row">
+		    		<div class="col-md-12">
+		    			<div class="footer-copyright">&copy; <span id="copyrightYear">2016</span> <a href="http://proxcloud.eu">Proxcloud.eu</a></div>
+		    		</div>
+		    	</div>
+	    </div>
+       
+ 
+<div id="dialog"  title="&#10004;"  >
+  <p></p>
+</div>
+    </body>
+</html>

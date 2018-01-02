@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Proxcloud - the most advanced RFID cloning service in the world</title>
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+	<link rel="stylesheet" href="css/main.css">
+    <link href="css/custom.css" rel="stylesheet">
+	<link rel="stylesheet" href="./font-awesome/css/font-awesome.min.css">
+	<script src="./bebas-neue.js"></script>
+
+    <!-- Custom Fonts & Icons -->
+    <link href='css/fontsgoogleapiscom_css_family=Open_Sans:400,700,600,800.css' rel='stylesheet' type='text/css'>
+	<link rel="stylesheet" href="css/icomoon-social.css">
+	<link rel="stylesheet" href="css/font-awesome.min.css">
+	
+	<script src="js/modernizr-2.6.2-respond-1.1.0.min.js"></script>
+<script src="js/jquery-1.9.1.min.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+		
+		<!-- Scrolling Nav JavaScript -->
+		<script src="js/jquery.easing.min.js"></script>
+		<script src="js/scrolling-nav.js"></script>	
+		<script src="js/jquery.i18n.js"></script>	
+		<script src="js/jquery.i18n.messagestore.js"></script>
+		<script src="js/js.cookie.js"></script>
+		<script src="js/translate.js"></script>
+		<script>
+		
+		$( document ).ready(function() {
+			initTranslation()
+			$( document ).ready(function() {
+    				$('#copyrightYear').html((new Date()).getFullYear())
+			});
+			$.get("./firmware-version.json", function(data){
+				for(file in data) {
+					if (data[file].type=="proxcloud"){
+						$("#firmwareLink").attr('href', "./downloads/"+data[file].name);
+					}
+				}
+			})
+		});
+		
+		</script>
+</head>
+    <body>
+        <!--[if lt IE 7]>
+            <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+        <![endif]-->
+        
+ <header class="navbar navbar-inverse navbar-fixed-top" role="banner">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="index.html"><img src="img/logo.png" alt="Proxcloud"></a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li ><a href="index.html" class="translate-nav-home">Home</a></li>
+                    
+                    <li><a href="services.html" class="translate-nav-services">Services</a></li>
+                    <li  class="active"><a href="getting_started.html" class="translate-nav-getting-started">Getting Started</a></li>
+                    
+                    <li><a href="account.html" class="translate-nav-account">Account</a></li> 
+                    <li><a href="about-us.html" class="translate-nav-about-us">About Us</a></li><div id="translations" style="float: right;right: 200px;"></div>
+                </ul>
+            </div>
+        </div>
+    </header><!--/header-->
+    
+
+        <!-- Page Title -->
+		<div class="section section-breadcrumbs">
+			<div class="container">
+				<div class="row">
+					<div class="col-md-12">
+						<h2 style="color:white" class="translate-nav-getting-started">Getting Started</h2>
+						<h3 class="translate-guide-heading-sub">This guide will show you how to set up your reader and copy cards</h3>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		
+        <div class="section">
+	    	<div class="container">
+				<div class="row">
+				<div class="col-sm-12">
+						<h3 class="translate-guide-introduction" id="guide
+">Introduction</h3>
+						<p><span class="translate-guide-intro-1">The proxmark3 is an advanced RFID research tool. It is open source, and has a great development community behind it. It can be used to copy a wide range of RFID cards. However, as noted on the</span> <a href="https://github.com/Proxmark/proxmark3/wiki" class="translate-guide-intro-2">official wiki page</a> <span class="translate-guide-intro-3">"It should be pointed out quite early that the proxmark3 is not really for beginners. If you are not already fairly familiar with electronics, embedded programming, some RF design and ISO standards, this device will probably bring you more frustration than anything else!". This is where Proxcloud comes in, Proxcloud is a super simple interface which lets even beginners copy the most advanced and secure RFID cards. Below you will find instructions on where to get a Proxmark3 device, how to load the firmware and most importantly, how to copy your RFID card. </span><br>
+
+
+						</p>
+					
+					</div>
+				</div>
+			</div>
+		</div>		
+<hr name="security">			
+        <div class="section">
+	        <div class="container">
+	        	<div class="row">
+	        		<div class="col-sm-12">
+	        			<div class="service-wrapper">
+		        			<h3 class="translate-guide-reader">Choosing a reader</h3>
+						<p class="translate-guide-reader-detail">The Proxmark3 is open source, and as such there are a number of different versions available. Proxcould works with all current versions of the hardware, if you already have a Proxmark3, you can skip this section, if you don't yet have a reader, see the options below for buying the device.</p><br><p class="translate-guide-reader-sellers">Proxcould is not associated with any of the following sellers, but all of these devices can be used with the service.</p>
+						<div class="col-md-4 col-sm-6"><img style="width: 70%;" src=./img/prox1.png></img>
+						<p><span class="translate-guide-reader-1">The orignial Proxmark3 hardware version, can be bought from</span> <a href="https://store.ryscc.com/products/new-proxmark3-kit">Rysc Corp</a></p></div>
+						<div class="col-md-4 col-sm-6"><img style="width: 100%;" src=./img/prox.png></img><p><span class="translate-guide-reader-2">Improved hardware version, can be bought from</span> <a href="http://www.elechouse.com/elechouse/index.php?main_page=product_info&cPath=90_93&products_id=2264">ElecHouse</a></p></div>
+						<div class="col-md-4 col-sm-6"><img style="width: 100%;" src=./img/prox3.jpg></img><p><span class="translate-guide-reader-3">Simplified hardware version, can be bought on</span> <a href="https://www.ebay.com/sch/i.html?_from=R40&_nkw=proxmark3&_sacat=0">Ebay</a></p></div>
+		        		</div>
+	        		</div>
+	        		
+	        	</div>
+	        </div>
+	    </div>
+<hr name="security">			
+        <div class="section">
+	        <div class="container">
+	        	<div class="row">
+	        		<div class="col-sm-12">
+	        			<div class="service-wrapper">
+						<h3 class="translate-guide-software">Client software</h3>
+						<p><span class="translate-guide-software-detail-1">Proxcould has rewritten the the Proxmark3 software to make it easier to use, the Proxmark3 no longer requires you to compile and run client software. Once the new firmware is loaded, simply plug in the Proxmark3 and open the Proxcloud web page. </span><br> <br>
+
+<span class="translate-guide-software-detail-2">In order to use the Proxcloud service, the proxmark3 needs to be running our updated firmware. If you need to update to the new firmware, simply can download and run the</span> <a href="./downloads/ProxcloudFirmwareLoader.apk" class="translate-guide-software-detail-5">the Proxcloud Firmware Loader Android app</a> <span class="translate-guide-software-detail-6">to update the firmware. If later you want to load the old firmware again, just select the Proxmark3 firmware option in the app. If you are familiar with manually updating the proxmark3 firmware, you can also download the firmware image </span><a id="firmwareLink" href="/downloads/proxcloud_firmware.img" class="translate-guide-software-detail-3">here</a> <span class="translate-guide-software-detail-4">and load it yourself.</span>
+		        		</div>
+	        		</div>
+	        		
+	        	</div>
+	        </div>
+	    </div>
+
+<hr name="security">			
+        <div class="section">
+	        <div class="container">
+	        	<div class="row">
+	        		<div class="col-sm-12">
+	        			<div class="service-wrapper">
+						<h3 class="translate-guide-steps">Step by step guide to copying a card</h3>
+		        			<p class="translate-guide-steps-detail">There are 4 simple steps to copy a card:<br>
+						<div  class="col-md-3 " style="margin-top: 30px;"><i class="fa fa-search fa-2x"></i><br><h3 class="translate-guide-steps-scan">Scan card</h3><span class="translate-guide-step-1">Place the card on your proxmark and click the "Scan" button. The service will detect the card type and let you know if it can be copied. <br>Remember your proxmark3 has two antennas, one for Low Frequency and one High Frequency, if scanning doesn't find the card at first, try putting your card on the other antenna and scan again, you can also try different positions and distances from the antenna to improve scanning.</span></div>
+						<div  class="col-md-3 " style="margin-top: 30px;"><i class="fa fa-clone fa-2x"></i><br><h3 class="translate-guide-steps-blank">Scan blank card</h3><span class="translate-guide-step-2">Place the blank card you want to copy to on the proxmark and click the "Verify" button. The service will check to make sure the blank card is the correct type of card. If it is, you can proceed to the next step. If the blank card is not the right type for the card you want to copy, the service will suggest places to buy the correct type of blank card.</span></div>
+						<div class="col-md-3" style="margin-top: 30px;"><i class="fa fa-cloud-upload fa-2x"></i><br><h3 class="translate-guide-steps-read">Read card</h3><span class="translate-guide-step-3">Again place the card you want to copy on the proxmark and click the "Read" button. For secure cards this step will crack the card encryption, in most cases this will happen automatically, in a few special cases you will need to use the "Snoop" button to snoop communications between the card and a reader before the encryption can be cracked.</span></div>
+						<div class="col-md-3 " style="margin-top: 30px;"><i class="fa fa-cloud-download fa-2x"></i><br><h3 class="translate-guide-steps-write">Write card</h3><span class="translate-guide-step-4">Again place the blank card on the proxmark3, click the "Copy" button, once the copy is complete the status will show green. You can now use the newly copied card.<span></div>
+		        		</div>
+	        		</div>
+	        		
+	        	</div>
+	        </div>
+	    </div>
+<hr name="security">			
+        <div class="section">
+	        <div class="container">
+	        	<div class="row">
+	        		<div class="col-sm-12">
+	        			<div class="service-wrapper">
+		        			<h3 class="translate-guide-payment">Payment</h3>
+						<p><span  class="translate-guide-payment-1">Most card types are free, see the</span> <a href="./services.html#pricing"  class="translate-guide-payment-2">pricing section</a> <span class="translate-guide-payment-3">for full details. If you only need to copy cards listed in the free section of the pricing chart, there is no need to add credit to your account, you can go right ahead and start copying cards. If you need to to copy secure cards, you will need to add credit to your account. Log in and click the "Add Credit" button, then choose a payment method.<span><br> <br> 
+
+<span class="translate-guide-payment-4">Advanced card types require a small payment to copy because they take significant cloud computing resources to decode. If you want to copy the cards listed in the paid category, you will need to add credit to your account first. </span><br> <br> 
+
+<span class="translate-guide-payment-5">You can add credit on the</span> <a href="account.html"  class="translate-nave-account">Account</a> <span class="translate-guide-payment-6">page. Because of legal threats from some RFID card manufacturers, I have had my Paypal account shut down in the past. For this reason I can only accept bitcoin payments. If you already have bitcoin, you can add it to your account balance directly, if you don't yet have bitcoin, you can <span><a href="https://www.ebay.com/sch/i.html?_from=R40&_nkw=bitcoin&_sacat=0" class="translate-guide-payment=7">buy it on ebay</a>. </p><br>
+		        		</div>
+	        		</div>
+	        		
+	        	</div>
+	        </div>
+	    </div>
+ <!-- Footer -->
+	   <div class="footer">
+	    		
+		    	<div class="row">
+		    		<div class="col-md-12">
+		    			<div class="footer-copyright">&copy; <span id="copyrightYear">2016</span> <a href="http://proxcloud.eu">Proxcloud.eu</a></div>
+		    		</div>
+		    	</div>
+	    </div>
+		
+    </body>
+</html>

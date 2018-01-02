@@ -1,0 +1,10 @@
+[{
+	"name": "proxcloud_firmware_2018-1-2.img",
+	"type": "proxcloud"
+},{
+	"name": "proxmark3_firmware_2017-12-12.img",
+	"type": "proxmark3"
+},{
+	"name": "proxmark3_bootloader_2017.img",
+	"type": "bootloader"
+}]
